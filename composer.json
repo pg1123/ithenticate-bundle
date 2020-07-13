@@ -1,0 +1,17 @@
+{
+    "name": "jams/ithenticate-bundle",
+    "description": "ithenticate for jams",
+    "type": "JAMS symfony-bundle",
+    "authors": [
+        {
+            "name": "Yang Liu",
+            "email": "yang.liu@mdpi.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "JAMS\\IthenticateBundle\\": "src/"
+        }
+    },
+    "require": {}
+}
