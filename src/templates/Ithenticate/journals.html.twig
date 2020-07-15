@@ -1,0 +1,52 @@
+{% extends "MDPIMainBundle::base.html.twig" %}
+{% block body %}
+    <div id="maincol">
+        <h1>Ithenticate Settings</h1>
+
+        <div class="user_box" id="ithenticate-journals">
+            <div class="caption">Ithenticate Settings
+            </div>
+            <div class="content">
+                {% for journal in journals %}
+                    <div class="user_box_item">
+                        <span id="itenticate-journal-{{ journal.id }}" class="subscribed" style="display: {{ journal.includeIthenticate == 1 ? "inline" : "none" }}">included</span>
+                        <input type="checkbox" class="checkbox_subs" value="{{ journal.id }}" id="sub-reminder-{{ journal.id }}"{% if journal.includeIthenticate == 1 %} checked="checked"{% endif %} data-update-url="{{ ithenticate_journals_update_path(journal.id) }}">
+                        <label for="sub-reminder-{{ journal.id }}">{{ journal.nameShort }}</label>
+                        <input type="hidden" class="subscipt" value="1">
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="note" id="log-con">*</div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script type="text/javascript">
+        $(function(){
+            $('.checkbox_subs').click(function(){
+                var node = $('#itenticate-journal-' + $(this).val());
+                var open = 0;
+                var url = $(this).data('update-url');
+                var _this = $(this);
+                if ($(this).is(':checked')){
+                    open = 1;
+                }
+                $(this).parent().append(SusyConfig.image.loading)
+                $.get(url, {
+                    open: open
+                }, function(res) {
+                    $('#ithenticate-journals img').remove()
+                    if (_this.is(':checked')) {
+                        node.fadeIn();
+                    } else {
+                        node.fadeOut();
+                    }
+                });
+
+            });
+
+        });
+    </script>
+{% endblock %}

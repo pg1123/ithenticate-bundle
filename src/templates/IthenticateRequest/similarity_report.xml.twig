@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<methodCall>
+    <methodName>report.get</methodName>
+    <params>
+        <param>
+            <value>
+                <struct>
+                    <member>
+                        <name>sid</name>
+                        <value>
+                            <string>{{ sid }}</string>
+                        </value>
+                    </member>
+                    <member>
+                        <name>id</name>
+                        <value>
+                            <int>{{ report_id }}</int>
+                        </value>
+                    </member>
+                    <member>
+                        <name>exclude_quotes</name>
+                        <value>
+                            <boolean>1</boolean>
+                        </value>
+                    </member>
+                    <member>
+                        <name>exclude_biblio</name>
+                        <value>
+                            <boolean>1</boolean>
+                        </value>
+                    </member>
+                    <member>
+                        <name>exclude_small_matches</name>
+                        <value>
+                            <boolean>1</boolean>
+                        </value>
+                    </member>
+                </struct>
+            </value>
+        </param>
+    </params>
+</methodCall>

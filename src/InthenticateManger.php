@@ -30,21 +30,22 @@ class InthenticateManger
     private $uploadParameters = [];
     private $retries = 0;
 
-    /*public function __construct($container)
+    private $ithenticateUrl;
+    private $ithenticateEmail;
+    private $ithenticatePassword;
+    private $ithenticateGroupId;
+    private $dmsDir;
+
+    public function __construct($managerOptions, $twig, $logger)
     {
-        $this->container = $container;
-        $this->ithenticateUrl = $this->container->getParameter('ithenticate_url');
-        $this->folder_group = $this->container->getParameter('ithenticate_group_folder_id');
-        $this->templating = $this->container->get('templating');
-        $this->logger = $this->container->get('logger');
-        $lastLoginResult = IthenticateApiProcessLogRepository::getLastLoginResult();
-        if ($lastLoginResult && $response = $lastLoginResult->getResponse()) {
-            $responseArray = xmlrpc_decode($response, 'utf-8');
-            if (!empty($responseArray['sid'])) {
-                $this->sid = $responseArray['sid'];
-            }
-        }
-    }*/
+        $this->ithenticateUrl = $managerOptions['url'];
+        $this->ithenticateEmail = $managerOptions['email'];
+        $this->ithenticatePassword = $managerOptions['password'];
+        $this->ithenticateGroupId = $managerOptions['group_folder_id'];
+        $this->dmsDir = $managerOptions['dms_dir'];
+        $this->twig = $twig;
+        $this->logger = $logger;
+    }
 
     /**
      * Set user
@@ -84,13 +85,11 @@ class InthenticateManger
 
     /**
      * Set manuscript file path
-
-    $uploadXml          = $this->templating->render(
-    'MDPIMainBundle:IthenticateRequest:submit_
+     *  $uploadXml = $this->templating->render('MDPIMainBundle:IthenticateRequest:submit_
      */
     public function setManuscriptFilePath(SubmissionManuscript $manuscript)
     {
-        $dmsDir = $this->container->getParameter("dms_dir");
+        $dmsDir = $this->dmsDir;
 
         // peer-review pdf > author uploaded pdf > author uploaded word
         $peerReviewFile = $manuscript->getPeerReviewFile();
@@ -115,17 +114,15 @@ class InthenticateManger
      */
     public function login()
     {
-        $ithenticateEmail = $this->container->getParameter('ithenticate_email');
-        $ithenticatePassword = $this->container->getParameter('ithenticate_password');
-        $loginXml = $this->templating->render(
-            'MDPIMainBundle:IthenticateRequest:login.xml.twig',
+        $loginXml = $this->twig->render(
+            '@JAMSIthenticate/IthenticateRequest/login.xml.twig',
             [
-                'username' => $ithenticateEmail,
-                'password' => $ithenticatePassword,
+                'username' => $this->ithenticateEmail,
+                'password' => $this->ithenticatePassword,
             ]
         );
-
         $loginResult = $this->apiRequest($loginXml, IthenticateApiProcessLog::ACTION_LOGIN);
+        print_r(111);exit;
         if ($loginResult && !empty($loginResult['data']['sid'])) {
             $this->sid          = $loginResult['data']['sid'];
         }
@@ -409,8 +406,8 @@ class InthenticateManger
             );
         }
 
-        $uploadXml          = $this->templating->render(
-            'MDPIMainBundle:IthenticateRequest:submit_document.xml.twig',
+        $uploadXml          = $this->twig->render(
+            '@JAMSIthenticate/IthenticateRequest/submit_document.xml.twig',
             $this->uploadParameters
         );
         return $this->apiRequest($uploadXml, IthenticateApiProcessLog::ACTION_UPLOAD);
@@ -445,8 +442,8 @@ class InthenticateManger
             'folder_group' => $this->folder_group,
         ];
 
-        $uploadXml = $this->templating->render(
-            'MDPIMainBundle:IthenticateRequest:folder_add.xml.twig',
+        $uploadXml = $this->twig->render(
+            '@JAMSIthenticate/IthenticateRequest/folder_add.xml.twig',
             $params
         );
 
@@ -475,8 +472,8 @@ class InthenticateManger
     {
         switch ($action) {
             case IthenticateApiProcessLog::ACTION_LOGIN:
-                $xml = $this->templating->render(
-                    'MDPIMainBundle:IthenticateRequest:login.xml.twig',
+                $xml = $this->twig->render(
+                    '@JAMSIthenticate/IthenticateRequest/login.xml.twig',
                     [
                         'username' => $this->ithenticateEmail,
                         'password' => $this->ithenticatePass,
@@ -484,16 +481,16 @@ class InthenticateManger
                 );
                 break;
             case IthenticateApiProcessLog::ACTION_FOLDER_LIST:
-                $xml = $this->templating->render(
-                    'MDPIMainBundle:IthenticateRequest:folder_list.xml.twig',
+                $xml = $this->twig->render(
+                    '@JAMSIthenticate/IthenticateRequest/folder_list.xml.twig',
                     [
                         'sid'=> $this->sid,
                     ]
                 );
                 break;
             case IthenticateApiProcessLog::ACTION_DOCUMENT_STATUS:
-                $xml = $this->templating->render(
-                    'MDPIMainBundle:IthenticateRequest:document_status.xml.twig',
+                $xml = $this->twig->render(
+                    '@JAMSIthenticate/IthenticateRequest/document_status.xml.twig',
                     [
                         'sid' => $this->sid,
                         'doc_id' => $this->docId,
@@ -501,8 +498,8 @@ class InthenticateManger
                 );
                 break;
             case IthenticateApiProcessLog::ACTION_SIMILARITY_REPORT:
-                $xml = $this->templating->render(
-                    'MDPIMainBundle:IthenticateRequest:similarity_report.xml.twig',
+                $xml = $this->twig->render(
+                    '@JAMSIthenticate/IthenticateRequest/similarity_report.xml.twig',
                     [
                         'sid' => $this->sid,
                         'report_id' => $this->reportId,
@@ -510,8 +507,8 @@ class InthenticateManger
                 );
                 break;
             case IthenticateApiProcessLog::ACTION_UPLOAD:
-                $xml = $this->templating->render(
-                    'MDPIMainBundle:IthenticateRequest:submit_document.xml.twig',
+                $xml = $this->twig->render(
+                    '@JAMSIthenticate/IthenticateRequest/submit_document.xml.twig',
                     $params ?: $this->uploadParameters
                 );
                 break;
@@ -643,8 +640,8 @@ class InthenticateManger
      */
     public function getDocumentStatus()
     {
-        $documentXml = $this->templating->render(
-            'MDPIMainBundle:IthenticateRequest:document_status.xml.twig',
+        $documentXml = $this->twig->render(
+            '@JAMSIthenticate/IthenticateRequest/document_status.xml.twig',
             array(
                 'sid' => $this->sid,
                 'doc_id' => $this->docId,
@@ -680,8 +677,8 @@ class InthenticateManger
      */
     public function getSimilarityReport($reportId)
     {
-        $reportXml = $this->templating->render(
-            'MDPIMainBundle:IthenticateRequest:similarity_report.xml.twig',
+        $reportXml = $this->twig->render(
+            '@JAMSIthenticate/IthenticateRequest/similarity_report.xml.twig',
             array(
                 'sid' => $this->sid,
                 'report_id' => $reportId,

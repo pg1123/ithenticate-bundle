@@ -38,10 +38,12 @@ class JAMSIthenticateExtension extends Extension
                 'email' => $configs[0]['managers'][$name]['email'],
                 'password' => $configs[0]['managers'][$name]['password'],
                 'group_folder_id' => $configs[0]['managers'][$name]['group_folder_id'],
+                'dms_dir' => '/var/www',
             ];
             $managerDefinition = new Definition($managerClass, [
                 $managerOptions,
-                new Reference('twig')
+                new Reference('twig'),
+                new Reference('logger')
             ]);
             //$managerDefinition->setAutowired(true);
             $managerDefinition->setPublic(true);
