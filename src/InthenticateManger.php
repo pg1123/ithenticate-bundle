@@ -5,12 +5,13 @@ use GuzzleHttp\Client;
 use MDPI\CoreBundle\Entity\JournalRepository;
 use MDPI\CoreBundle\Entity\SubmissionManuscript;
 use MDPI\CoreBundle\Entity\User;
-use MDPI\CoreBundle\Entity\IthenticateApiProcessLog;
-use MDPI\CoreBundle\Entity\IthenticateApiProcessLogRepository;
-use MDPI\CoreBundle\Entity\IthenticateApiProcessUpload;
-use MDPI\CoreBundle\Entity\IthenticateApiProcessUploadRepository;
+use JAMS\CoreBundle\Entity\IthenticateApiProcessUploadRepository;
 use MDPI\CoreBundle\Entity\IthenticateApiDocRepository;
+use MDPI\CoreBundle\Entity\IthenticateApiProcessUpload;
 
+use Twig\Environment;
+use JAMS\IthenticateBundle\Entity\IthenticateApiProcessLog;
+use JAMS\IthenticateBundle\Model\LogInterface;
 /**
  * Ithenticate API Service
  * @package Ithenticate
@@ -35,8 +36,11 @@ class InthenticateManger
     private $ithenticatePassword;
     private $ithenticateGroupId;
     private $dmsDir;
+    private $twig;
+    private $logger;
+    private $doctrine;
 
-    public function __construct($managerOptions, $twig, $logger)
+    public function __construct($managerOptions,Environment $twig, $logger, $doctrine)
     {
         $this->ithenticateUrl = $managerOptions['url'];
         $this->ithenticateEmail = $managerOptions['email'];
@@ -45,6 +49,7 @@ class InthenticateManger
         $this->dmsDir = $managerOptions['dms_dir'];
         $this->twig = $twig;
         $this->logger = $logger;
+        $this->doctrine = $doctrine;
     }
 
     /**
@@ -121,8 +126,8 @@ class InthenticateManger
                 'password' => $this->ithenticatePassword,
             ]
         );
-        $loginResult = $this->apiRequest($loginXml, IthenticateApiProcessLog::ACTION_LOGIN);
-        print_r(111);exit;
+        $loginResult = $this->apiRequest($loginXml, LogInterface::ACTION_LOGIN);
+        print_r($loginResult);exit;
         if ($loginResult && !empty($loginResult['data']['sid'])) {
             $this->sid          = $loginResult['data']['sid'];
         }
@@ -138,11 +143,11 @@ class InthenticateManger
      */
     protected function apiRequest($xml, $action)
     {
-        $userId = $this->user->getId();
+        $userId = $this->user ? $this->user->getId() : 0;
         $msId = null;
         $ithenticateApiProcessUpload = null;
         $ithenticateApiProcessLog = null;
-        if (IthenticateApiProcessLog::ACTION_UPLOAD === $action) {
+        if (LogInterface::ACTION_LOGIN === $action) {
             $params = $this->uploadParameters;
             $params['upload_file_content'] = $this->filePath;
             $shortXml = $this->getRequestXml($action, $params);
@@ -169,11 +174,22 @@ class InthenticateManger
                 'id' => $ithenticateApiProcessUpload->getId(),
             ]);
         } else {
-            $processLogId = IthenticateApiProcessLogRepository::insertWithFields([
+            /*$processLogId = IthenticateApiProcessLogRepository::insertWithFields([
                 'user_id' => $userId,
                 'action' => $action,
                 'request_dt' => IthenticateApiProcessLogRepository::now()
-            ]);
+            ]);*/
+            $processLog = new IthenticateApiProcessLog();
+            $processLog->setUserId($userId);
+            $processLog->setAction($action);
+            $processLog->setRequestDt(date('Y-m-d h:i:s', time()));
+            $em = $this->doctrine->getManager();
+            $em->persist($processLog);
+            $em->flush();
+            echo 222;exit;
+
+
+
             $ithenticateApiProcessLog = IthenticateApiProcessLogRepository::getOneById($processLogId);
             if (empty($ithenticateApiProcessLog)) {
                 $errorMessage   = 'iThenticate API process log can not be found.';
@@ -226,7 +242,7 @@ class InthenticateManger
             ];
         }
 
-        if (IthenticateApiProcessLog::ACTION_UPLOAD === $action) {
+        if (LogInterface::ACTION_UPLOAD === $action) {
             IthenticateApiProcessUploadRepository::updateWithFields([
                 'response' => $responseXml,
                 'response_status' => $apiStatus,
@@ -262,7 +278,7 @@ class InthenticateManger
         }
 
         if (200 === $apiStatus) {
-            if (IthenticateApiProcessLog::ACTION_UPLOAD === $action) {
+            if (LogInterface::ACTION_UPLOAD === $action) {
                 IthenticateApiProcessUploadRepository::updateWithFields(array(
                     'session_id' => $response['sid'],
                     'doc_id' => $response['uploaded'][0]['id'],
@@ -410,7 +426,7 @@ class InthenticateManger
             '@JAMSIthenticate/IthenticateRequest/submit_document.xml.twig',
             $this->uploadParameters
         );
-        return $this->apiRequest($uploadXml, IthenticateApiProcessLog::ACTION_UPLOAD);
+        return $this->apiRequest($uploadXml, LogInterface::ACTION_UPLOAD);
     }
 
     /**
@@ -420,7 +436,7 @@ class InthenticateManger
      */
     public function getFolderList()
     {
-        $action = IthenticateApiProcessLog::ACTION_FOLDER_LIST;
+        $action = LogInterface::ACTION_FOLDER_LIST;
         $folderListResult       = $this->apiRequest($this->getRequestXml($action), $action);
 
         if ($folderListResult && !empty($folderListResult['folders'][0]['id'])) {
@@ -447,7 +463,7 @@ class InthenticateManger
             $params
         );
 
-        $res = $this->apiRequest($uploadXml, IthenticateApiProcessLog::ACTION_FOLDER_ADD);
+        $res = $this->apiRequest($uploadXml, LogInterface::ACTION_FOLDER_ADD);
         if ($this->folderId = $res['data']['id']) {
             JournalRepository::updateWithFields(
                 [
@@ -470,17 +486,18 @@ class InthenticateManger
      */
     private function getRequestXml($action, $params = [])
     {
+
         switch ($action) {
-            case IthenticateApiProcessLog::ACTION_LOGIN:
+            case LogInterface::ACTION_LOGIN:
                 $xml = $this->twig->render(
                     '@JAMSIthenticate/IthenticateRequest/login.xml.twig',
                     [
                         'username' => $this->ithenticateEmail,
-                        'password' => $this->ithenticatePass,
+                        'password' => $this->ithenticatePassword,
                     ]
                 );
                 break;
-            case IthenticateApiProcessLog::ACTION_FOLDER_LIST:
+            case LogInterface::ACTION_FOLDER_LIST:
                 $xml = $this->twig->render(
                     '@JAMSIthenticate/IthenticateRequest/folder_list.xml.twig',
                     [
@@ -488,7 +505,7 @@ class InthenticateManger
                     ]
                 );
                 break;
-            case IthenticateApiProcessLog::ACTION_DOCUMENT_STATUS:
+            case LogInterface::ACTION_DOCUMENT_STATUS:
                 $xml = $this->twig->render(
                     '@JAMSIthenticate/IthenticateRequest/document_status.xml.twig',
                     [
@@ -497,7 +514,7 @@ class InthenticateManger
                     ]
                 );
                 break;
-            case IthenticateApiProcessLog::ACTION_SIMILARITY_REPORT:
+            case LogInterface::ACTION_SIMILARITY_REPORT:
                 $xml = $this->twig->render(
                     '@JAMSIthenticate/IthenticateRequest/similarity_report.xml.twig',
                     [
@@ -506,7 +523,7 @@ class InthenticateManger
                     ]
                 );
                 break;
-            case IthenticateApiProcessLog::ACTION_UPLOAD:
+            case LogInterface::ACTION_UPLOAD:
                 $xml = $this->twig->render(
                     '@JAMSIthenticate/IthenticateRequest/submit_document.xml.twig',
                     $params ?: $this->uploadParameters
@@ -648,7 +665,7 @@ class InthenticateManger
             )
         );
 
-        return $this->apiRequest($documentXml, IthenticateApiProcessLog::ACTION_DOCUMENT_STATUS);
+        return $this->apiRequest($documentXml, LogInterface::ACTION_DOCUMENT_STATUS);
     }
 
     /**
@@ -685,6 +702,6 @@ class InthenticateManger
             )
         );
 
-        return $this->apiRequest($reportXml, IthenticateApiProcessLog::ACTION_SIMILARITY_REPORT);
+        return $this->apiRequest($reportXml, LogInterface::ACTION_SIMILARITY_REPORT);
     }
 }

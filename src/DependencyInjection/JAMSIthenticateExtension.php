@@ -43,7 +43,8 @@ class JAMSIthenticateExtension extends Extension
             $managerDefinition = new Definition($managerClass, [
                 $managerOptions,
                 new Reference('twig'),
-                new Reference('logger')
+                new Reference('logger'),
+                new Reference('doctrine'),
             ]);
             //$managerDefinition->setAutowired(true);
             $managerDefinition->setPublic(true);
